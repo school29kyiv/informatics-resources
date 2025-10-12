@@ -11,7 +11,7 @@
   }
   *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;background:var(--bg);color:var(--text)}
   .wrap{max-width:900px;margin:0 auto;padding:24px}
-  .card{background:var(--card);border-radius:16px;box-shadow:0 2px 6px rgba(0,0,0,.08);padding:16px;margin-bottom:16px}
+  .card{background:var(--card);border-radius:16px;box-shadow:0 2px 6px rgba(0,0,0,.08);padding:16px;margin: 16px 0;}
   h1{margin:0 0 6px;font-size:28px} p.lead{margin:0;color:var(--muted)}
   .bar{height:22px;background:var(--bar);border-radius:12px;position:relative;overflow:hidden}
   .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--fill);transition:width .1s linear}
@@ -57,7 +57,7 @@
 <script>
 (function(){
   // Фіксовані налаштування (не відображаються)
-  const TOLERANCE = 0      // вікно точності (±)
+  const TOLERANCE = 0.2      // вікно точності (±)
   const TICK_MS   = 90;     // оновлення рівня під час утримання
   const BASE_SPD  = 0.9;    // базова швидкість росту за тик
   const NOISE_AMP = 0.8;    // шум (імітація "аналоговості")
