@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Передай сигнал точно — утримання</title>
+<style>
+  :root{
+    --bg:#f8fafc;--text:#0f172a;--muted:#64748b;--card:#ffffff;
+    --bar:#cbd5e1;--fill:#6366f1;--win:#10b981;--zone:#d1fae5;--danger:#ef4444;--ok:#16a34a;
+  }
+  *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;background:var(--bg);color:var(--text)}
+  .wrap{max-width:900px;margin:0 auto;padding:24px}
+  .card{background:var(--card);border-radius:16px;box-shadow:0 2px 6px rgba(0,0,0,.08);padding:16px;margin-bottom:16px}
+  h1{margin:0 0 6px;font-size:28px} p.lead{margin:0;color:var(--muted)}
+  .bar{height:22px;background:var(--bar);border-radius:12px;position:relative;overflow:hidden}
+  .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--fill);transition:width .1s linear}
+  .zone{position:absolute;left:0;right:0;background:var(--zone);opacity:.6;pointer-events:none}
+  .row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .stat{font-size:14px;color:var(--muted)}
+  button{border:0;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer}
+  .btn-hold{background:#4f46e5;color:#fff}
+  .btn-hold:disabled{background:#a5b4fc;cursor:not-allowed}
+  .btn-reset{background:#e2e8f0}
+  .status{font-weight:800}
+  .win{color:var(--ok)} .lose{color:var(--danger)}
+  .hint{font-size:14px;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🎯 Вправа: «Передай сигнал точно»</h1>
+    <p class="lead">Утримуй кнопку й спробуй відпустити рівно в ціль. Лише <b>одна спроба</b> за раунд.</p>
+
+    <div class="card">
+      <div class="row">
+        <div class="stat">Цільовий рівень: <b id="targetNum">—</b> (вікно точності ±<span id="tolNum">—</span>)</div>
+        <div class="stat">Поточний рівень: <b id="levelNum">0.0</b></div>
+        <div class="stat">Стан: <span id="state" class="status">Готово</span></div>
+      </div>
+
+      <div class="bar" style="margin:10px 0 8px">
+        <div id="zone" class="zone"></div>
+        <div id="fill" class="fill"></div>
+      </div>
+
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button id="holdBtn" class="btn-hold">⏯️ Утримуй, щоб підвищувати рівень</button>
+        <button id="resetBtn" class="btn-reset">🔁 Новий раунд</button>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        ➜ Перемога: відпусти в межах цілі. Програш: відпустив раніше/пізніше або дійшов до кінця шкали.
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // Фіксовані налаштування (не відображаються)
+  const TOLERANCE = 0      // вікно точності (±)
+  const TICK_MS   = 90;     // оновлення рівня під час утримання
+  const BASE_SPD  = 0.9;    // базова швидкість росту за тик
+  const NOISE_AMP = 0.8;    // шум (імітація "аналоговості")
+  const MIN_TGT   = 18;     // межі випадкової цілі (щоб не було надто легко/важко)
+  const MAX_TGT   = 92;
+
+  // Елементи
+  const targetNum = document.getElementById('targetNum');
+  const tolNum    = document.getElementById('tolNum');
+  const levelNum  = document.getElementById('levelNum');
+  const stateEl   = document.getElementById('state');
+  const fillEl    = document.getElementById('fill');
+  const zoneEl    = document.getElementById('zone');
+  const holdBtn   = document.getElementById('holdBtn');
+  const resetBtn  = document.getElementById('resetBtn');
+
+  // Стан раунду
+  let level = 0;
+  let target = 0;
+  let roundOver = false;
+  let holdTimer = null;
+
+  function rndTarget(){
+    // випадкова ціль у розумних межах
+    target = Math.floor(Math.random()*(MAX_TGT - MIN_TGT + 1)) + MIN_TGT;
+  }
+
+  function layoutZone(){
+    // малюємо візуальну цільову зону (по висоті не важливо — смуга поверх прогресу)
+    const bar = zoneEl.parentElement.getBoundingClientRect();
+    const totalW = bar.width;
+    const center = target/100 * totalW;
+    const zoneW = (2*TOLERANCE)/100 * totalW;
+    zoneEl.style.top = '0px';
+    zoneEl.style.height = '100%';
+    zoneEl.style.width = Math.max(6, zoneW) + 'px';
+    zoneEl.style.left = Math.max(0, Math.min(totalW - zoneW, center - zoneW/2)) + 'px';
+  }
+
+  function updateView(){
+    fillEl.style.width = level + '%';
+    const inWin = Math.abs(level - target) <= TOLERANCE;
+    fillEl.style.background = inWin ? 'var(--win)' : 'var(--fill)';
+    levelNum.textContent = level.toFixed(1);
+  }
+
+  function setState(txt, cls){
+    stateEl.textContent = txt;
+    stateEl.className = 'status ' + (cls || '');
+  }
+
+  function startRound(){
+    roundOver = false;
+    level = 0;
+    rndTarget();
+    targetNum.textContent = target;
+    tolNum.textContent = TOLERANCE;
+    setState('Готово');
+    holdBtn.disabled = false;
+    updateView();
+    layoutZone();
+  }
+
+  function endRound(win){
+    roundOver = true;
+    holdBtn.disabled = true;
+    setState(win ? 'Перемога 🎉' : 'Програш 😵', win ? 'win' : 'lose');
+    if (holdTimer){ clearInterval(holdTimer); holdTimer = null; }
+  }
+
+  function tick(){
+    // зростання рівня + шум (аналоговість)
+    const jitter = (Math.random()*2 - 1) * NOISE_AMP;
+    level = Math.max(0, Math.min(100, level + BASE_SPD + jitter));
+    updateView();
+    // якщо дійшли до 100, а гравець ще тримає — програш (перетримав)
+    if (level >= 100){
+      endRound(false);
+    }
+  }
+
+  // Події утримання (миша + тач)
+  function holdDown(){
+    if (roundOver || holdTimer) return;
+    setState('Тримає…');
+    holdTimer = setInterval(tick, TICK_MS);
+  }
+  function holdUp(){
+    if (roundOver) return;
+    if (holdTimer){ clearInterval(holdTimer); holdTimer = null; }
+    // оцінюємо результат в момент відпускання
+    const win = Math.abs(level - target) <= TOLERANCE && level < 100;
+    endRound(win);
+  }
+
+  // Кнопка утримання: миша
+  holdBtn.addEventListener('mousedown', holdDown);
+  document.addEventListener('mouseup', holdUp);
+  // Кнопка утримання: тач
+  holdBtn.addEventListener('touchstart', function(e){ e.preventDefault(); holdDown(); }, {passive:false});
+  document.addEventListener('touchend', function(e){ e.preventDefault(); holdUp(); }, {passive:false});
+
+  // Новий раунд (ціль змінюється автоматично)
+  resetBtn.addEventListener('click', startRound);
+  window.addEventListener('resize', layoutZone);
+
+  // Старт
+  startRound();
+})();
+</script>
+</body>
+</html>
