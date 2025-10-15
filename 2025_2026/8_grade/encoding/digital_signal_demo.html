@@ -21,14 +21,14 @@
   .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--fill);transition:width .08s linear}
   .th{position:absolute;top:0;bottom:0;width:2px;background:var(--th)}
   .stat{font-size:14px;color:var(--muted)}
-  .btn{border:0;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer}
+  .btn{border:0;border-radius:14px;padding:14px 16px;font-weight:700;cursor:pointer;touch-action:manipulation}
   .btn-prim{background:var(--accent);color:#fff}
   .btn-prim:active{transform:scale(0.98)}
   .btn-ghost{background:var(--ghost)}
   .hint{font-size:14px;color:var(--muted)}
   .seq{display:flex;gap:10px;flex-wrap:wrap}
   .bit, .bitOut{
-    width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
     font-weight:800;border:2px solid #e2e8f0;background:#f1f5f9;color:#334155
   }
   .bit.current{outline:3px solid var(--accent); outline-offset:2px}
@@ -48,20 +48,32 @@
   .bit-prog-wrap {height:10px;background:var(--ghost);border-radius:999px;overflow:hidden}
   .bit-prog {height:100%;width:0;background:var(--accent);transition:width .06s linear}
   .bit-time-row {display:flex;justify-content:space-between;font-size:13px;color:#475569}
+
+  /* Лічильники */
+  .badge{display:inline-block;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800}
+  .b-all{background:#e2e8f0;color:#0f172a}
+  .b-win{background:#dcfce7;color:#065f46}
+  .b-lose{background:#fee2e2;color:#991b1b}
+  .b-rate{background:#fef9c3;color:#92400e}
+
+  /* Мобільність */
+  .controls{gap:8px}
+  .controls .btn{flex:1 1 220px}
+  #result{min-height:28px}
 </style>
 </head>
 <body>
   <div class="wrap">
     <h1>💾 Передай цифровий сигнал</h1>
-    <p class="lead">Передай задану послідовність 0 та 1. Система зчитує <b>по тактах</b>. Тривалість одного такта - 2000 мс. </p>
+    <p class="lead">Передай задану послідовність 0 та 1. Система зчитує <b>по тактах</b>. Тривалість одного такту — 2000 мс.</p>
 
     <!-- Аналоговий рівень (шумить), але вихід завжди 0/1 за порогом -->
     <div class="card">
       <div class="row">
         <div class="stat">Поріг: <b id="thVal">50</b></div>
         <div class="chips">
-          <div class="chip">Якщо в кінці такту значення меньше порогу, то це сигнал 0</div>
-          <div class="chip">А якщо більше, то це сигнал 1</div>
+          <div class="chip">Якщо в кінці такту значення менше порогу — це 0</div>
+          <div class="chip">Якщо більше або дорівнює — це 1</div>
         </div>
       </div>
 
@@ -74,7 +86,7 @@
         <div class="stat">Аналоговий рівень: <b id="levelTxt">0.0</b></div>
         <div class="center">
           <span class="stat">Поточний стан:</span>
-          <div class="stateB s0" id="bitBubble"><span id="bitTxt">0</span></div>
+          <div class="stateB s0" id="bitBubble" aria-live="polite"><span id="bitTxt">0</span></div>
         </div>
         <div class="stat">Тактовий індекс: <b id="idxTxt">—</b></div>
       </div>
@@ -103,31 +115,41 @@
       </div>
     </div>
 
-    <!-- Керування -->
+    <!-- Керування + лічильники -->
     <div class="card">
-      <div class="row" style="gap:8px">
+      <div class="row controls">
         <button class="btn btn-prim" id="startBtn">▶️ Почати спробу</button>
         <button class="btn btn-ghost" id="nextBtn" disabled>🔁 Наступна послідовність</button>
-        <div class="center">
+        <div class="center" style="flex:1 1 100%">
           <button class="btn btn-prim" id="holdBtn">⏯️ Утримуй = «1», відпусти = «0»</button>
-          <span class="hint">Система фіксує стан у кінці кожного біта автоматично.</span>
+          <span class="hint">Стан фіксується в кінці кожного біта автоматично.</span>
         </div>
       </div>
-      <div id="result" style="margin-top:10px;font-size:18px;"></div>
+
+      <!-- Лічильники -->
+      <div class="row" style="margin-top:10px">
+        <div class="stat" id="counters">
+          <span class="badge b-all">Спроб: <b id="tries">0</b></span>
+          <span class="badge b-win">Вдалі: <b id="wins">0</b></span>
+          <span class="badge b-lose">Невдалі: <b id="fails">0</b></span>
+          <span class="badge b-rate">Успіх: <b id="rate">0%</b></span>
+        </div>
+        <div id="result" style="font-size:18px;" aria-live="polite"></div>
+      </div>
     </div>
   </div>
 
 <script>
 (function(){
   // Параметри режиму
-  const TICK_MS   = 50;    // інтервал оновлення рівня
-  const NOISE_AMP = 1.2;   // шум аналогового рівня
-  const SPEED     = 1.1;   // базова швидкість зміни рівня
-  const UP_TARGET = 80;    // ціль рівня при утриманні
-  const DN_TARGET = 20;    // ціль рівня при відпусканні
-  const THRESHOLD = 50;    // поріг 0/1
+  const TICK_MS   = 50;     // інтервал оновлення рівня
+  const NOISE_AMP = 1.2;    // шум аналогового рівня
+  const SPEED     = 1.1;    // базова швидкість зміни рівня
+  const UP_TARGET = 80;     // ціль рівня при утриманні
+  const DN_TARGET = 20;     // ціль рівня при відпусканні
+  const THRESHOLD = 50;     // поріг 0/1
   const BIT_MS    = 2000;   // тривалість одного біта (мс)
-  const BIT_COUNT = 6;     // довжина послідовності
+  const BIT_COUNT = 6;      // довжина послідовності
 
   // Елементи DOM
   const fill     = document.getElementById('fill');
@@ -147,6 +169,12 @@
   const bitProg  = document.getElementById('bitProg');
   const resultEl = document.getElementById('result');
 
+  // Лічильники
+  const triesEl = document.getElementById('tries');
+  const winsEl  = document.getElementById('wins');
+  const failsEl = document.getElementById('fails');
+  const rateEl  = document.getElementById('rate');
+
   bitMsTxt.textContent = BIT_MS;
 
   // Стан
@@ -161,6 +189,9 @@
   let attemptStart = 0;  // час старту спроби (perf.now)
   let bitStart = 0;      // час старту поточного біта (perf.now)
   let rafId = null;      // анімація прогресу біта
+
+  // Лічильники (накопичувальні)
+  let tries = 0, wins = 0, fails = 0;
 
   function toBit(x){ return x >= THRESHOLD ? 1 : 0; }
 
@@ -225,6 +256,14 @@
     idxTxt.textContent = running ? (bitIdx+1)+'/'+BIT_COUNT : '—';
   }
 
+  function updateCounters(){
+    triesEl.textContent = String(tries);
+    winsEl.textContent  = String(wins);
+    failsEl.textContent = String(fails);
+    const rate = tries ? Math.round((wins/tries)*100) : 0;
+    rateEl.textContent = rate + '%';
+  }
+
   function startAttempt(){
     if (running) return;
     running = true;
@@ -234,7 +273,7 @@
 
     attemptStart = performance.now();
     bitStart = attemptStart;
-    stepBitTimer(); // запустити анімацію таймера біта
+    stepBitTimer(); // анімація таймера біта
 
     seqTimer = setInterval(()=>{
       const t = performance.now() - attemptStart;
@@ -257,6 +296,7 @@
   }
 
   function endAttempt(){
+    if (!running) return;
     running = false;
     clearInterval(seqTimer);
     seqTimer = null;
@@ -270,14 +310,21 @@
     renderSeq();
 
     const ok = yours.every((v,i)=> v===target[i]);
-    resultEl.innerHTML = ok ? '<span class="win">✅ Перемога! Послідовність передано правильно.</span>'
-                            : '<span class="lose">❌ Програш. Послідовність не збігається.</span>';
-    nextBtn.disabled = false; // нова випадкова послідовність після спроби
+
+    // ЛІЧИЛЬНИКИ
+    tries++;
+    if (ok) wins++; else fails++;
+    updateCounters();
+
+    resultEl.innerHTML = ok
+      ? '<span class="win">✅ Перемога! Послідовність передано правильно.</span>'
+      : '<span class="lose">❌ Програш. Послідовність не збігається.</span>';
+
+    nextBtn.disabled = false; // можна згенерувати нову послідовність
   }
 
   // Візуалізація часу поточного біта
   function stepBitTimer(){
-    // Оновлюємо прогрес/залишок часу навіть між «квантуванням»
     const now = performance.now();
     const elapsed = now - bitStart;
     const frac = Math.max(0, Math.min(1, elapsed / BIT_MS));
@@ -295,10 +342,14 @@
   }
 
   // Події утримання (миша + тач)
-  holdBtn.addEventListener('mousedown', ()=>{ holding = true; });
-  document.addEventListener('mouseup',   ()=>{ holding = false; });
-  holdBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); holding = true; }, {passive:false});
-  document.addEventListener('touchend',  (e)=>{ e.preventDefault(); holding = false; }, {passive:false});
+  function holdDown(){ holding = true; }
+  function holdUp(){ holding = false; }
+
+  holdBtn.addEventListener('mousedown', holdDown);
+  document.addEventListener('mouseup', holdUp);
+  holdBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); holdDown(); }, {passive:false});
+  document.addEventListener('touchend',  (e)=>{ e.preventDefault(); holdUp(); }, {passive:false});
+  document.addEventListener('touchcancel', (e)=>{ e.preventDefault(); holdUp(); }, {passive:false});
 
   // Керування раундами
   startBtn.addEventListener('click', startAttempt);
@@ -312,7 +363,7 @@
     bitLeftTxt.textContent = '—';
   });
 
-  window.addEventListener('resize', ()=>layout());
+  window.addEventListener('resize', layout);
 
   // Ініціалізація
   layout();
@@ -320,6 +371,7 @@
   startAnalog();
   newSequence();
   renderSeq();
+  updateCounters();
 })();
 </script>
 </body>
