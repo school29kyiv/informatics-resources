@@ -345,15 +345,7 @@
   function holdDown(){ holding = true; }
   function holdUp(){ holding = false; }
 
-  holdBtn.addEventListener('mousedown', holdDown);
-  document.addEventListener('mouseup', holdUp);
-  holdBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); holdDown(); }, {passive:false});
-  document.addEventListener('touchend',  (e)=>{ e.preventDefault(); holdUp(); }, {passive:false});
-  document.addEventListener('touchcancel', (e)=>{ e.preventDefault(); holdUp(); }, {passive:false});
-
-  // Керування раундами
-  startBtn.addEventListener('click', startAttempt);
-  nextBtn.addEventListener('click', ()=>{
+  function prepareNewSeq() {
     newSequence();
     startBtn.disabled = false;
     nextBtn.disabled = true;
@@ -361,7 +353,20 @@
     renderSeq();
     bitProg.style.width = '0%';
     bitLeftTxt.textContent = '—';
-  });
+  }
+  
+  holdBtn.addEventListener('mousedown', holdDown);
+  document.addEventListener('mouseup', holdUp);
+  holdBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); holdDown(); }, {passive:false});
+  holdBtn.addEventListener('touchend',  (e)=>{ e.preventDefault(); holdUp(); }, {passive:false});
+  holdBtn.addEventListener('touchcancel', (e)=>{ e.preventDefault(); holdUp(); }, {passive:false});
+
+  // Керування раундами
+  startBtn.addEventListener('click', startAttempt);
+  startBtn.addEventListener('touchend',  (e)=>{ e.preventDefault(); startAttempt(); }, {passive:false});
+  
+  nextBtn.addEventListener('click', prepareNewSeq);
+  nextBtn.addEventListener('touchend',  (e)=>{ e.preventDefault(); prepareNewSeq(); }, {passive:false});
 
   window.addEventListener('resize', layout);
 
