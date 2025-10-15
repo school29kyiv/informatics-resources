@@ -205,11 +205,12 @@
   document.addEventListener('mouseup', holdUp);
   // Кнопка утримання: тач
   holdBtn.addEventListener('touchstart', function(e){ e.preventDefault(); holdDown(); }, {passive:false});
-  document.addEventListener('touchend', function(e){ e.preventDefault(); holdUp(); }, {passive:false});
-  document.addEventListener('touchcancel', function(e){ e.preventDefault(); holdCancel(); }, {passive:false});
+  holdBtn.addEventListener('touchend', function(e){ e.preventDefault(); holdUp(); }, {passive:false});
+  holdBtn.addEventListener('touchcancel', function(e){ e.preventDefault(); holdCancel(); }, {passive:false});
 
   // Новий раунд (ціль змінюється автоматично)
   resetBtn.addEventListener('click', startRound);
+  resetBtn.addEventListener('touchend', function(e){ e.preventDefault(); startRound(); }, {passive:false});
   window.addEventListener('resize', layoutZone);
 
 
