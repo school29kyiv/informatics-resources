@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Позиційний запис у двійковій системі</title>
+<style>
+  :root{
+    --bg:#0b1220; --card:#0f172a; --text:#e2e8f0; --muted:#94a3b8;
+    --accent:#06b6d4; --ok:#10b981; --bad:#ef4444; --soft:#1e293b;
+    --input:#0b1220; --border:#24324a; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; background:linear-gradient(180deg,#0b1220,#111827 40%,#0b1220); color:var(--text)}
+  .wrap{max-width:980px; margin:0 auto; padding:20px}
+  h1{margin:10px 0 6px; font-size:28px}
+  p.lead{margin:0 0 16px; color:var(--muted)}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; margin:12px 0; box-shadow:0 8px 30px rgba(0,0,0,.25)}
+  .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin:12px 0 0 0;}
+  .btn{border:0; border-radius:12px; padding:12px 16px; font-weight:700; cursor:pointer; color:#fff; background:var(--accent)}
+  .btn:active{transform:scale(.98)}
+  .btn.small{padding:8px 10px; font-weight:700; border-radius:10px}
+  .btn.ghost{background:#334155}
+  .btn.ok{background:var(--ok)} .btn.bad{background:var(--bad)}
+  .btn:disabled{opacity:.6; cursor:not-allowed}
+  .pulse{animation:pulse 1.2s ease-in-out 2}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(6,182,212,.7)}70%{box-shadow:0 0 0 14px rgba(6,182,212,0)}100%{box-shadow:0 0 0 0 rgba(6,182,212,0)}}
+  .grid{display:grid; gap:10px}
+  .formula{font-size:20px; line-height:1.8}
+  .segments{display:flex; flex-wrap:wrap; gap:10px}
+  .seg{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; background:var(--soft); border-radius:12px}
+  .x{display:inline-flex; align-items:center; gap:6px}
+  input[type="number"]{
+    width:72px; max-width:26vw; text-align:center; font-weight:800; font-size:18px;
+    color:var(--text); background:var(--input); border:1px solid var(--border); border-radius:10px; padding:8px 10px; outline:none;
+  }
+  /* прибрати спінери */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0;}
+  input[type="number"]{ -moz-appearance:textfield; appearance:textfield;}
+  /* поле показника степеня */
+  input.pow{
+    width:58px; font-size:14px; font-weight:800; padding:4px 6px; border-radius:8px;
+    transform: translateY(-2px);
+  }
+  input::placeholder{color:#64748b}
+  .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#1f2937; color:#cbd5e1; font-size:12px}
+  .muted{color:var(--muted)}
+  .status{font-weight:800}
+  .status.ok{color:var(--ok)} .status.bad{color:var(--bad)} .status.warn{color:var(--warn)}
+  .divider{height:1px; background:var(--border); margin:10px 0}
+  code.k{background:#1e293b; padding:2px 6px; border-radius:6px; font-weight:700}
+  .example{color:#cbd5e1; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .topbar{
+    position:sticky; top:0; z-index:3;
+    display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+    background:#0f1a30; border:1px solid #1c2b45; border-radius:14px; padding:12px 14px; margin-bottom:12px;
+  }
+  .badge{padding:6px 10px; border-radius:999px; font-weight:800; font-size:12px}
+  .badge.ok{background:rgba(16,185,129,.12); color:var(--ok); border:1px solid rgba(16,185,129,.3)}
+  .badge.bad{background:rgba(239,68,68,.12); color:var(--bad); border:1px solid rgba(239,68,68,.3)}
+  .badge.neutral{background:#1f2937; color:#cbd5e1; border:1px solid #334155}
+  sub{font-size:70%; vertical-align:baseline; position:relative; top:2px}
+</style>
+</head>
+<body>
+  <div class="wrap" id="top">
+    <h1>0️⃣1️⃣ Позиційний запис у двійковій системі</h1>
+    <p class="lead">Рівні: ① простав степені <b>2ⁿ</b>, ② заповни біти (0/1), ③ конструктор <code class="k">біт × 2^степінь</code>. Помилка → спроба одразу завершується як невдала.</p>
+
+    <div class="topbar" id="topbar">
+      <div id="attemptStatus" class="status warn">Статус спроби: очікуються відповіді…</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span id="attemptBadge" class="badge neutral">Не завершено</span>
+        <span id="attemptCounter" class="badge neutral">Спроб: 0</span>
+        <button id="newAttemptBtn" class="btn" disabled>🔁 Нова спроба</button>
+      </div>
+    </div>
+
+    <!-- Level 1 -->
+    <div class="card" id="lvl1">
+      <div class="row">
+        <h2>1) Простав степені 2ⁿ ⤵️</h2>
+        <div class="pill">Мета: побачити ваги позицій 2<sup>n</sup> … 2<sup>0</sup></div>
+      </div>
+      <p class="muted">Приклад (для 1101₂): <span class="example">1101₂ = (1 × 2³) + (1 × 2²) + (0 × 2¹) + (1 × 2⁰)</span></p>
+      <div class="formula" id="f1"></div>
+      <div class="row">
+        <button class="btn" id="submit1">Надіслати відповідь</button>
+        <span id="status1" class="status"></span>
+      </div>
+    </div>
+
+    <!-- Level 2 -->
+    <div class="card" id="lvl2">
+      <div class="row">
+        <h2>2) Заповни біти (0/1) ⤵️</h2>
+        <div class="pill">Мета: співвіднести біти з позиціями</div>
+      </div>
+      <p class="muted">Впиши <b>0</b> або <b>1</b> для кожної позиції (число у двійковій формі).</p>
+      <div class="formula" id="f2"></div>
+      <div class="row">
+        <button class="btn" id="submit2">Надіслати відповідь</button>
+        <span id="status2" class="status"></span>
+      </div>
+    </div>
+
+    <!-- Level 3 -->
+    <div class="card" id="lvl3">
+      <div class="row">
+        <h2>3) Конструктор розкладу 🧠</h2>
+        <div class="pill">Мета: самостійно зібрати коректний вираз</div>
+      </div>
+      <p class="muted">Додай стільки сегментів, скільки потрібно. Кожен сегмент — <code class="k">біт × 2^степінь</code>. Порядок зліва направо: 2<sup>len−1</sup> … 2<sup>0</sup>.</p>
+      <div id="tasks" class="grid"></div>
+      <div class="row">
+        <button class="btn" id="submit3">Надіслати відповіді</button>
+        <div id="status3" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // Налаштування довжини бінарних чисел
+  const LEN_MIN = 3, LEN_MAX = 8;    // довжина у бітах
+  const TASKS_COUNT = 3;
+
+  // Утиліти
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const el = (tag, cls, txt) => { const n=document.createElement(tag); if(cls) n.className=cls; if(txt!=null) n.textContent=txt; return n; };
+  const randInt = (a,b)=> Math.floor(Math.random()*(b-a+1))+a;
+  const randLen = ()=> randInt(LEN_MIN, LEN_MAX);
+
+  function randBinaryWithLen(len){
+    // перший біт обов'язково 1, інші 0/1
+    let s = '1';
+    for(let i=1;i<len;i++) s += (Math.random()<0.5 ? '0' : '1');
+    return s; // рядок бітів
+  }
+  const bitsOf = binStr => binStr.split('').map(b=>Number(b));
+
+  // DOM
+  const attemptStatus = $('#attemptStatus');
+  const attemptBadge  = $('#attemptBadge');
+  const newAttemptBtn = $('#newAttemptBtn');
+  const topbar        = $('#topbar');
+
+  let submitted1=false, submitted2=false, submitted3=false;
+  let correct1=false, correct2=false, correct3=false;
+  let attemptFinished=false;
+
+  function lockSection(scopeSel){
+    const scope = $(scopeSel);
+    scope.querySelectorAll('input,button').forEach(c=>{
+      if(c.id==='newAttemptBtn') return;
+      c.disabled = true;
+    });
+  }
+  function lockAll(){
+    document.querySelectorAll('input,button').forEach(c=>{
+      if(c.id==='newAttemptBtn') return;
+      c.disabled = true;
+    });
+  }
+  function unlockAllInputsAndSubmits(){
+    document.querySelectorAll('input').forEach(i=>{ i.disabled=false; i.value=''; });
+    document.querySelectorAll('button[id^="submit"]').forEach(b=> b.disabled=false);
+  }
+  function scrollToTopbar(){
+    topbar.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  // --- Лічильник спроб із терміном зберігання 10 хв ---
+  const attemptCounterEl = $('#attemptCounter');
+  const STORAGE_KEY = 'bin_attempts_data';
+  const EXPIRY_MS = 10 * 60 * 1000;
+
+  function loadAttempts() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { count: 0, time: 0 };
+    try {
+      const data = JSON.parse(raw);
+      if (Date.now() - data.time > EXPIRY_MS) { localStorage.removeItem(STORAGE_KEY); return { count: 0, time: 0 }; }
+      return data;
+    } catch { return { count: 0, time: 0 }; }
+  }
+  function saveAttempts(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+  let attemptData = loadAttempts();
+  let attempts = attemptData.count;
+  function renderAttempts(){ if (attemptCounterEl) attemptCounterEl.textContent = 'Спроб: ' + attempts; }
+  renderAttempts();
+
+  function endAttempt(success){
+    attemptFinished = true;
+    newAttemptBtn.disabled = false;
+    if(success){
+      attemptStatus.textContent = 'Статус спроби: ✅ Усі завдання виконано правильно';
+      attemptStatus.className = 'status ok';
+      attemptBadge.textContent = 'Успіх';
+      attemptBadge.className = 'badge ok';
+      scrollToTopbar();
+      attemptStatus.classList.add('pulse'); setTimeout(()=>attemptStatus.classList.remove('pulse'),1500);
+    }else{
+      attemptStatus.textContent = 'Статус спроби: ❌ Помилка. Почни нову спробу.';
+      attemptStatus.className = 'status bad';
+      attemptBadge.textContent = 'Помилки';
+      attemptBadge.className = 'badge bad';
+      scrollToTopbar();
+      newAttemptBtn.classList.add('pulse'); setTimeout(()=>newAttemptBtn.classList.remove('pulse'),1800);
+    }
+  }
+  function failAttempt(msgEl, msgText){
+    if(attemptFinished) return;
+    msgEl.textContent = msgText; msgEl.className = 'status bad';
+    lockAll(); endAttempt(false);
+  }
+  function updateAttemptStatusIfAllSubmitted(){
+    if(attemptFinished) return;
+    const allSubmitted = submitted1 && submitted2 && submitted3;
+    const allCorrect   = correct1 && correct2 && correct3;
+    if(allSubmitted){ lockAll(); endAttempt(allCorrect); }
+    else{
+      attemptStatus.textContent = 'Статус спроби: очікуються відповіді…';
+      attemptStatus.className = 'status warn';
+      attemptBadge.textContent = 'Не завершено';
+      attemptBadge.className = 'badge neutral';
+      newAttemptBtn.disabled = true;
+    }
+  }
+
+  newAttemptBtn.addEventListener('click', ()=>{
+    attempts += 1;
+    initAttempt();
+  });
+
+  // -------------------- Level 1: простав степені 2ⁿ --------------------
+  const f1 = $('#f1'), status1 = $('#status1'), submit1 = $('#submit1');
+  let b1 = '', bits1 = [], len1 = 0;
+  function buildLevel1(){
+    f1.innerHTML='';
+    len1 = randLen();
+    b1 = randBinaryWithLen(len1);
+    bits1 = bitsOf(b1);
+    // виведемо як 10110₂
+    const header = el('span','', `${b1}`); const sub2 = document.createElement('sub'); sub2.textContent = '2';
+    f1.appendChild(header); f1.appendChild(sub2); f1.appendChild(el('span','', ' = '));
+    bits1.forEach((bit, idx)=>{
+      if(idx>0) f1.appendChild(el('span','', ' + '));
+      const pow = (len1-1) - idx;
+      f1.appendChild(segPowGeneric(bit, `l1p_${idx}`, pow, 2));
+    });
+    status1.textContent=''; status1.className='status';
+  }
+  function segPowGeneric(bit, id, expectedPow, baseVal){
+    const s = el('span','seg');
+    s.appendChild(el('span','', bit));
+    s.appendChild(el('span','', '×'));
+    const base = el('span','', String(baseVal));
+    const sup = el('sup');
+    const inp = el('input'); inp.type='number'; inp.placeholder='?'; inp.id=id; inp.min=0; inp.max=16; inp.classList.add('pow');
+    sup.appendChild(inp);
+    const powWrap = el('span','x'); powWrap.appendChild(base); powWrap.appendChild(sup);
+    s.appendChild(powWrap);
+    s.dataset.expectedPow = String(expectedPow);
+    return s;
+  }
+  submit1.addEventListener('click', ()=>{
+    const segs = [...f1.querySelectorAll('.seg')];
+    if(segs.length===0) return;
+    for(const seg of segs){
+      const val = Number(seg.querySelector('input').value);
+      if(Number.isNaN(val)){ status1.textContent='Заповни всі степені.'; status1.className='status bad'; return; }
+      if(val !== Number(seg.dataset.expectedPow)){ failAttempt(status1,'❌ Помилка у степенях. Зліва найбільший, далі ↓ до 0.'); return; }
+    }
+    correct1 = true; submitted1 = true;
+    status1.textContent='✅ Вірно!'; status1.className='status ok';
+    lockSection('#lvl1'); updateAttemptStatusIfAllSubmitted();
+  });
+
+  // -------------------- Level 2: заповни біти --------------------
+  const f2 = $('#f2'), status2 = $('#status2'), submit2 = $('#submit2');
+  let b2 = '', bits2 = [], len2 = 0;
+  function buildLevel2(){
+    f2.innerHTML='';
+    len2 = randLen();
+    b2 = randBinaryWithLen(len2);
+    bits2 = bitsOf(b2);
+
+    const head = el('span','', `${b2}`); const sub2 = document.createElement('sub'); sub2.textContent='2';
+    f2.appendChild(head); f2.appendChild(sub2); f2.appendChild(el('span','', ' = '));
+
+    for(let idx=0; idx<len2; idx++){
+      if(idx>0) f2.appendChild(el('span','', ' + '));
+      const pow = (len2-1) - idx;
+      f2.appendChild(segBitGeneric(`l2b_${idx}`, pow));
+    }
+    status2.textContent=''; status2.className='status';
+  }
+  function segBitGeneric(id, pow){
+    const s = el('span','seg');
+    const inp = el('input'); inp.type='number'; inp.placeholder='0/1'; inp.id=id; inp.min=0; inp.max=1;
+    s.appendChild(inp);
+    s.appendChild(el('span','', '×'));
+    const base = el('span','', '2');
+    const sup = el('sup','', pow);
+    const wrap = el('span','x'); wrap.appendChild(base); wrap.appendChild(sup);
+    s.appendChild(wrap);
+    return s;
+  }
+  submit2.addEventListener('click', ()=>{
+    const inputs = [...f2.querySelectorAll('input')];
+    if(inputs.length!==len2) return;
+    for(let idx=0; idx<len2; idx++){
+      const v = Number(inputs[idx].value);
+      if(Number.isNaN(v)){ status2.textContent='Заповни всі біти (0/1).'; status2.className='status bad'; return; }
+      if(!(v===0 || v===1)){ failAttempt(status2,'❌ Біт може бути тільки 0 або 1.'); return; }
+      if(v !== bits2[idx]){ failAttempt(status2,'❌ Помилка у бітах. Зліва — старший біт.'); return; }
+    }
+    correct2 = true; submitted2 = true;
+    status2.textContent='✅ Чудово!'; status2.className='status ok';
+    lockSection('#lvl2'); updateAttemptStatusIfAllSubmitted();
+  });
+
+  // -------------------- Level 3: конструктор (біт × 2^степінь) --------------------
+  const tasksEl = $('#tasks'), submit3 = $('#submit3'), status3 = $('#status3');
+  let tasks = [];
+  function buildLevel3(){
+    tasksEl.innerHTML=''; tasks = [];
+    for(let i=0;i<TASKS_COUNT;i++){
+      const len = randLen();
+      const bin = randBinaryWithLen(len);
+      const arr = bitsOf(bin);
+
+      const card = el('div','card'); card.style.background='#0b1324'; card.style.borderColor='#1c2b45';
+      const rowTop = el('div','row');
+      const left = el('div');
+      const head = el('span','', `${bin}`); const sub2 = document.createElement('sub'); sub2.textContent='2';
+      left.appendChild(head); left.appendChild(sub2);
+      rowTop.appendChild(el('div','', 'Число: ')).appendChild(left);
+      const chip = el('div','pill'); chip.textContent = `Довжина: ${len}. Збери вираз.`;
+      rowTop.appendChild(chip);
+
+      const segsWrap = el('div','segments'); segsWrap.id = `segs_${i}`;
+      const controls = el('div','row');
+      const addBtn = el('button','btn small','＋ Додати сегмент');
+      const clearBtn = el('button','btn small ghost','🗑️ Очистити');
+      controls.appendChild(addBtn); controls.appendChild(clearBtn);
+
+      addBtn.addEventListener('click', ()=>{
+        const seg = el('span','seg');
+        const inpB = el('input'); inpB.type='number'; inpB.placeholder='0/1'; inpB.min=0; inpB.max=1;
+        const times = el('span','', '×');
+        const base = el('span','', '2');
+        const sup = el('sup');
+        const inpP = el('input'); inpP.type='number'; inpP.placeholder='степінь'; inpP.min=0; inpP.max=16; inpP.classList.add('pow');
+        sup.appendChild(inpP);
+        const powWrap = el('span','x'); powWrap.appendChild(base); powWrap.appendChild(sup);
+        seg.appendChild(inpB); seg.appendChild(times); seg.appendChild(powWrap);
+        segsWrap.appendChild(seg);
+      });
+      clearBtn.addEventListener('click', ()=>{ segsWrap.innerHTML=''; });
+
+      card.appendChild(rowTop);
+      card.appendChild(el('div','divider'));
+      card.appendChild(segsWrap);
+      card.appendChild(controls);
+      tasksEl.appendChild(card);
+
+      tasks.push({bin, bits:arr, len, wrapId: segsWrap.id});
+    }
+    status3.textContent=''; status3.className='status';
+  }
+
+  submit3.addEventListener('click', ()=>{
+    for(const t of tasks){
+      const wrap = $('#'+t.wrapId);
+      const segs = [...wrap.querySelectorAll('.seg')];
+
+      if(segs.length !== t.len){ failAttempt(status3, `❌ Для ${t.bin}₂: має бути ${t.len} сегмент(ів).`); return; }
+
+      for(const seg of segs){
+        const [inpB, inpP] = seg.querySelectorAll('input');
+        const b = Number(inpB.value), p = Number(inpP.value);
+        if([b,p].some(v=>Number.isNaN(v))){ status3.textContent='Заповни всі поля в кожному сегменті.'; status3.className='status bad'; return; }
+        if(!(b===0||b===1) || !Number.isInteger(p)){ failAttempt(status3,'❌ Біт 0/1; степінь — ціле число.'); return; }
+      }
+      for(let idx=0; idx<t.len; idx++){
+        const [inpB, inpP] = segs[idx].querySelectorAll('input');
+        const b = Number(inpB.value), p = Number(inpP.value);
+        const expectedPow = (t.len-1) - idx;
+        const expectedBit = t.bits[idx];
+        if(p !== expectedPow || b !== expectedBit){
+          failAttempt(status3, `❌ Для ${t.bin}₂: очікувалось "${expectedBit}×2^${expectedPow}" на позиції ${idx+1}.`);
+          return;
+        }
+      }
+    }
+    // успішно
+    correct3 = true; submitted3 = true;
+    status3.textContent='✅ Ідеально! Усі конструктори зібрані правильно.'; status3.className='status ok';
+    lockSection('#lvl3'); updateAttemptStatusIfAllSubmitted();
+  });
+
+  // автофокус наступного поля
+  document.addEventListener('input', (e)=>{
+    const t = e.target;
+    if(t.tagName==='INPUT' && t.type==='number' && t.value.length>=1){
+      const wrap = t.closest('.formula, .segments'); if(!wrap) return;
+      const inputs = [...wrap.querySelectorAll('input')];
+      const idx = inputs.indexOf(t);
+      if(idx>-1 && idx<inputs.length-1){ inputs[idx+1].focus(); }
+    }
+  });
+
+  function initAttempt(){
+    // зберегти лічильник з часовою міткою (10 хв TTL)
+    attemptData = { count: attempts, time: Date.now() };
+    saveAttempts(attemptData); renderAttempts();
+
+    submitted1=submitted2=submitted3=false;
+    correct1=correct2=correct3=false;
+    attemptFinished=false;
+    unlockAllInputsAndSubmits();
+    buildLevel1(); buildLevel2(); buildLevel3();
+    attemptStatus.textContent = 'Статус спроби: очікуються відповіді…';
+    attemptStatus.className = 'status warn';
+    attemptBadge.textContent = 'Не завершено';
+    attemptBadge.className = 'badge neutral';
+    newAttemptBtn.disabled = true;
+    window.scrollTo({top:0, behavior:'auto'});
+  }
+
+  initAttempt();
+})();
+</script>
+</body>
+</html>
