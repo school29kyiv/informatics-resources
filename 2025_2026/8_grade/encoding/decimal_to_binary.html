@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Конструктор двійкових чисел (десяткова → двійкова)</title>
+<style>
+  :root{
+    --bg:#ffffff; --text:#0b1220; --muted:#475569; --border:#e2e8f0; --card:#f8fafc;
+    --ok:#10b981; --bad:#ef4444; --accent:#7c3aed; --tile:#ffffff; --tileOn:#eef2ff; --tileOnBorder:#c7d2fe;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; color:var(--text); background:var(--bg)}
+  .wrap{max-width:980px; margin:0 auto; padding:20px}
+  h1{font-size:28px; margin:8px 0 4px}
+  p.lead{margin:0 0 16px; color:var(--muted)}
+  .panel{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; margin:12px 0}
+  .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+  .space-between{justify-content:space-between}
+  .btn{border:0; padding:12px 16px; border-radius:12px; background:var(--accent); color:#fff; font-weight:800; cursor:pointer}
+  .btn.secondary{background:#0ea5e9}
+  .btn:disabled{opacity:.6; cursor:not-allowed}
+  .badge{padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; font-weight:700}
+  .badge.ok{background:#ecfdf5; color:var(--ok); border-color:#a7f3d0}
+  .status{font-weight:800}
+  .status.ok{color:var(--ok)} .status.bad{color:var(--bad)}
+  .pill{padding:6px 10px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px}
+  .tile{
+    background:var(--tile); border:2px solid var(--border); border-radius:12px; padding:10px; cursor:pointer;
+    display:flex; flex-direction:column; gap:4px; transition:.15s;
+  }
+  .tile:hover{transform:translateY(-1px)}
+  .tile.on{background:var(--tileOn); border-color:var(--tileOnBorder); box-shadow:0 0 0 3px rgba(199,210,254,.5) inset}
+  .tile .top{display:flex; justify-content:space-between; align-items:center}
+  .tile b{font-size:18px}
+  .tile small{color:var(--muted)}
+  code.k{background:#f1f5f9; padding:2px 6px; border-radius:6px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧩 Конструктор: склади число з 2ⁿ</h1>
+  <p class="lead">Перетвори десяткове число (0–256) у двійковий запис, обираючи потрібні <b>степені двійки</b>. Клік по плитці 2ⁿ вмикає/вимикає її (біт 1/0).</p>
+
+  <!-- Лічильники + керування -->
+  <div class="panel">
+    <div class="row space-between">
+      <div class="row">
+        <span id="attempts" class="badge">Спроб: 0</span>
+        <span id="successes" class="badge ok">Успіхів: 0</span>
+      </div>
+      <div class="row">
+        <button id="newBtn" class="btn secondary">🎲 Нова задача</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Завдання -->
+  <div class="panel">
+    <div class="row">
+      <div class="pill">Завдання</div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div style="font-size:22px">Десяткове число:</div>
+      <div id="targetDec" style="font-size:28px; font-weight:900">—</div>
+    </div>
+
+    <div style="margin-top:10px" class="mono">
+      Обрані біти (від 2⁸ до 2⁰): <span id="bits">—</span>
+    </div>
+    <div style="margin-top:6px" class="mono">
+      Поточна сума: <span id="currentSum">0</span>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <button id="checkBtn" class="btn">✅ Перевірити</button>
+      <div id="status" class="status"></div>
+    </div>
+    <div id="explain" class="mono" style="color:#475569; margin-top:6px"></div>
+  </div>
+
+  <!-- Плитки 2^n -->
+  <div class="panel">
+    <div class="row"><div class="pill">Обери потрібні степені двійки</div></div>
+    <p class="lead" style="margin-top:8px">Порада: починай з найбільшої 2ⁿ, яка не перевищує цільове число.</p>
+    <div id="tiles" class="grid" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---------- Налаштування ----------
+  const MAX_POW = 8; // 2^8 = 256
+  const MIN_POW = 0;
+  const MAX_DEC = 256;
+
+  // ---------- Стан ----------
+  let target = 0;
+  let bits = new Array(MAX_POW - MIN_POW + 1).fill(0); // від 2^8 до 2^0
+  let attempts = 0, successes = 0;
+  let taskChecked = false; // забороняє багаторазову перевірку на одну задачу
+
+  // ---------- DOM ----------
+  const targetDecEl = document.getElementById('targetDec');
+  const bitsEl = document.getElementById('bits');
+  const sumEl = document.getElementById('currentSum');
+  const tilesEl = document.getElementById('tiles');
+  const statusEl = document.getElementById('status');
+  const explainEl = document.getElementById('explain');
+  const attemptsEl = document.getElementById('attempts');
+  const successesEl = document.getElementById('successes');
+  const newBtn = document.getElementById('newBtn');
+  const checkBtn = document.getElementById('checkBtn');
+
+  // ---------- Утиліти ----------
+  function randDec(){ return Math.floor(Math.random()*(MAX_DEC+1)); }
+  function pow2(p){ return 1<<p; }
+  function renderCounters(){
+    attemptsEl.textContent = 'Спроб: ' + attempts;
+    successesEl.textContent = 'Успіхів: ' + successes;
+  }
+  function sumFromBits(){
+    let s = 0;
+    for(let i=0;i<bits.length;i++){
+      const p = MAX_POW - i;
+      if(bits[i]===1) s += pow2(p);
+    }
+    return s;
+  }
+  function bitsToString(){
+    const s = bits.join('');
+    return (/^0+$/.test(s)) ? '0' : s.replace(/^0+/, '');
+  }
+  function explainFromBits(){
+    const terms = [];
+    for(let i=0;i<bits.length;i++){
+      const p = MAX_POW - i;
+      if(bits[i]===1) terms.push(`2^${p}`);
+    }
+    return terms.length ? terms.join(' + ') : '0';
+  }
+  function decToBin(n){
+    if(n===0) return '0';
+    let s=''; let x=n;
+    while(x>0){ s=(x%2)+s; x=Math.floor(x/2); }
+    return s;
+  }
+  function greedyDecompose(n){
+    if(n===0) return [];
+    const res=[]; let x=n;
+    for(let p=MAX_POW; p>=MIN_POW; p--){
+      const val = pow2(p);
+      if(val<=x){ res.push(p); x-=val; }
+    }
+    return res;
+  }
+
+  // ---------- Побудова плиток ----------
+  function buildTiles(){
+    tilesEl.innerHTML = '';
+    for(let p=MAX_POW; p>=MIN_POW; p--){
+      const idx = MAX_POW - p;
+      const val = pow2(p);
+
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.dataset.idx = idx;
+
+      const top = document.createElement('div');
+      top.className = 'top';
+      const powEl = document.createElement('b'); powEl.textContent = `2^${p}`;
+      const bitEl = document.createElement('span'); bitEl.textContent = 'біт: 0'; bitEl.style.fontWeight='800';
+      top.appendChild(powEl); top.appendChild(bitEl);
+
+      const small = document.createElement('small'); small.textContent = `= ${val}`;
+      tile.appendChild(top);
+      tile.appendChild(small);
+
+      tile.addEventListener('click', ()=>{
+        if(taskChecked) return; // після перевірки плитки блокуються
+        bits[idx] = bits[idx] ? 0 : 1;
+        renderState();
+      });
+
+      tilesEl.appendChild(tile);
+    }
+    renderState();
+  }
+
+  // ---------- Відмальовування ----------
+  function renderState(){
+    [...tilesEl.children].forEach((tile)=>{
+      const idx = Number(tile.dataset.idx);
+      const bit = bits[idx];
+      const span = tile.querySelector('.top span');
+      span.textContent = 'біт: ' + bit;
+      tile.classList.toggle('on', bit===1);
+    });
+    bitsEl.textContent = bits.join(' ') + '  →  двійкове: ' + bitsToString();
+    sumEl.textContent = String(sumFromBits());
+    statusEl.textContent = '';
+    statusEl.className = 'status';
+    explainEl.textContent = '';
+  }
+
+  // ---------- Логіка задачі ----------
+  function newTask(){
+    target = randDec();
+    targetDecEl.textContent = target;
+    bits = bits.map(()=>0);
+    taskChecked = false;           // дозволяємо одну перевірку для нової задачі
+    checkBtn.disabled = false;     // розблокуємо кнопку
+    renderState();
+  }
+
+  function check(){
+    if(taskChecked) return;        // двічі не перевіряємо
+    taskChecked = true;
+    checkBtn.disabled = true;      // блокуємо кнопку після першої перевірки
+
+    attempts += 1; renderCounters();
+
+    const s = sumFromBits();
+    const bin = bitsToString();
+    const exp = explainFromBits();
+
+    if(s === target){
+      successes += 1; renderCounters();
+      statusEl.textContent = '✅ Вірно!';
+      statusEl.className = 'status ok';
+      explainEl.innerHTML = `Пояснення: ${bin} = ${exp} = <b>${s}</b>`;
+    }else{
+      statusEl.textContent = '❌ Невірно.';
+      statusEl.className = 'status bad';
+      const greedy = greedyDecompose(target);
+      const greedyStr = greedy.length ? greedy.map(p=>`2^${p}`).join(' + ') : '0';
+      const correctBin = decToBin(target);
+      explainEl.innerHTML = `Твоє: ${bin} = ${exp} = <b>${s}</b><br>Правильно: <b>${correctBin}</b> = ${greedyStr} = <b>${target}</b>`;
+    }
+  }
+
+  // ---------- Події ----------
+  newBtn.addEventListener('click', newTask);
+  checkBtn.addEventListener('click', check);
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Enter') check(); });
+
+  // ---------- Старт ----------
+  buildTiles();
+  newTask();
+})();
+</script>
+</body>
+</html>
