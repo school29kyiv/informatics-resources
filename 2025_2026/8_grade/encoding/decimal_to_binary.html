@@ -35,7 +35,6 @@
   .tile .top{display:flex; justify-content:space-between; align-items:center}
   .tile b{font-size:18px}
   .tile small{color:var(--muted)}
-  code.k{background:#f1f5f9; padding:2px 6px; border-radius:6px}
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 </style>
 </head>
@@ -48,7 +47,7 @@
   <div class="panel">
     <div class="row space-between">
       <div class="row">
-        <span id="attempts" class="badge">Спроб: 0</span>
+        <span id="attempts" class="badge">Спроб: 0 (0%)</span>
         <span id="successes" class="badge ok">Успіхів: 0</span>
       </div>
       <div class="row">
@@ -117,9 +116,13 @@
   // ---------- Утиліти ----------
   function randDec(){ return Math.floor(Math.random()*(MAX_DEC+1)); }
   function pow2(p){ return 1<<p; }
+  function pctSuccess(){
+    if (attempts === 0) return 0;
+    return Math.round((successes / attempts) * 100);
+  }
   function renderCounters(){
-    attemptsEl.textContent = 'Спроб: ' + attempts;
-    successesEl.textContent = 'Успіхів: ' + successes;
+    attemptsEl.textContent = `Спроб: ${attempts} (${pctSuccess()}%)`;
+    successesEl.textContent = `Успіхів: ${successes}`;
   }
   function sumFromBits(){
     let s = 0;
@@ -247,6 +250,7 @@
   document.addEventListener('keydown', (e)=>{ if(e.key==='Enter') check(); });
 
   // ---------- Старт ----------
+  renderCounters();
   buildTiles();
   newTask();
 })();
